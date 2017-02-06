@@ -146,9 +146,12 @@ compute (picture_t *pict,
     int iy, ix, i;
     double pasx = (x_max - x_min) / pict->x_size, /* discretisation */
 	   pasy = (y_max - y_min) / (pict->y_size*procs);
+     /* pict->y_size*procs au lieu de pict->y_size sinon image divisé selon le nb de procs*/
+
+
 
     /* Calcul en chaque point de l'image */
-    for (iy = self*(pict->y_size) ; iy < (pict->y_size*procs) ; iy++) {
+    for (iy = self*(pict->y_size) ; iy < (self+1)*(pict->y_size) ; iy++) {
 	for (ix = 0 ; ix < pict->x_size; ix++) {
 	    double a = x_min + ix * pasx,
 		b = y_max - iy * pasy,
@@ -195,17 +198,13 @@ main (int argc, char *argv[])
 
     init_picture (& pict_local, x_size, y_size/procs);
     if(self==PROC_NULL){
-      for (p=1 ; p<procs ; p++)
         init_picture(& pict_io,x_size,y_size);
     }
 
 
     compute (& pict_local, n_iter, x_min, x_max, y_min, y_max);
-    if(self==PROC_NULL){
-      for (p=1 ; p<procs ; p++)
-        compute (& pict_io, n_iter, x_min, x_max, y_min, y_max);
-    }
 
+    MPI_Gather(pict_local.pixels, x_size*(y_size/procs), MPI_CHAR, pict_io.pixels, x_size*(y_size/procs), MPI_CHAR, PROC_NULL, com);
 
     if(self == PROC_NULL){
       save_picture (& pict_io, pathname);
